@@ -206,7 +206,7 @@ class LearnModel(object):
                 (epoch, loss_train, loss_valid, acc_train, acc_valid))
 
             if acc_valid > best_val_acc:
-                if self.args.save_path:
+                if self.args.model_file:
                     state = {
                         'args': self.args, 
                         'epoch': epoch, 
@@ -214,7 +214,7 @@ class LearnModel(object):
                         'state_dict': self.model.state_dict(), 
                         'optimizer': self.optimizer.state_dict()
                     }
-                    torch.save(state, self.args.save_path)
+                    torch.save(state, self.args.model_file)
 
     def predict(self, action_list, lang_list):
         s = np.sum(action_list)
