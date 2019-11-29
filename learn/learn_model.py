@@ -172,7 +172,7 @@ class LearnModel(object):
             loss.backward()
             self.optimizer.step()
 
-        return loss * len(label_list), torch.argmax(pred, dim=-1), label_list
+        return loss.detach() * len(label_list), torch.argmax(pred, dim=-1), label_list
 
     def run_epoch(self, data, is_train):
         start = 0
