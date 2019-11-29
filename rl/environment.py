@@ -7,6 +7,7 @@ from utils import *
 from PIL import Image
 from copy import deepcopy
 import tensorflow as tf
+from collections import Counter
 from itertools import groupby
 import pdb
 import pickle
@@ -37,8 +38,13 @@ class GymEnvironment(object):
 
     def reset(self):
         self.n_steps = 0
-        self.action_vector = np.zeros(N_ACTIONS)
         self.potentials_list = []
+        if self.args.action_enc == 'frequency':
+            self.action_vector = np.zeros(N_ACTIONS)
+        elif self.args.action_enc == 'rnn':
+            self.action_vector = [0]
+        else:
+            raise NotImplementedError
 
     def new_game(self, from_random_game=False):
         self._screen = self.env.reset()
@@ -161,7 +167,13 @@ class GymEnvironment(object):
     def act(self, action):
         start_lives = self.lives
         self.terminal = False
-        self.action_vector[action] += 1.
+
+        if self.args.action_enc == 'frequency':
+            self.action_vector[action] += 1.
+        elif self.args.action_enc == 'rnn':
+            self.action_vector.append(action)
+        else:
+            raise NotImplementedError
 
         self._step(action)
 
@@ -208,7 +220,14 @@ class GymEnvironment(object):
             e_x = np.exp(logits - np.max(logits))
             self.potentials_list.append(e_x[1] - e_x[0] + self.args.noise * np.random.normal())
 
-        self.action_vectors_list.append(list(self.action_vector[k] for k in spearman_corr_coeff_actions))
+        if self.args.action_enc == 'frequency':
+            self.action_vectors_list.append(list(self.action_vector[k] for k in spearman_corr_coeff_actions))
+        elif self.args.action_enc == 'rnn':
+            action_frequencies = Counter(self.action_vector)
+            self.action_vectors_list.append([action_frequencies[k] for k in spearman_corr_coeff_actions])
+        else:
+            raise NotImplementedError
+
         self.rewards_list.append(self.potentials_list[-1])
 
         if len(self.potentials_list) > 1:

@@ -22,7 +22,16 @@ class Model(nn.Module):
         super().__init__()
         self.args = args
 
-        self.action_enc_linear1 = nn.Linear(N_ACTIONS, args.action_enc_size)
+        if self.args.action_enc == 'frequency':
+            self.action_enc_linear1 = nn.Linear(N_ACTIONS, args.action_enc_size)
+        elif self.args.action_enc == 'rnn':
+            self.action_enc_emb = nn.Embedding(N_ACTIONS, args.action_enc_size)
+            nn.init.xavier_uniform(self.action_enc_emb.weight)
+            self.action_rnn = nn.LSTM(args.action_enc_size, args.action_enc_size, 1, batch_first=True)
+            self.action_enc_linear1 = nn.Linear(args.action_enc_size, args.action_enc_size)
+        else:
+            raise NotImplementedError
+
         self.action_enc_linear2 = nn.Linear(args.action_enc_size, args.action_enc_size)
         self.action_enc_linear3 = nn.Linear(args.action_enc_size, args.action_enc_size)
         self.action_enc_bn1 = nn.BatchNorm1d(args.action_enc_size)
@@ -55,10 +64,23 @@ class Model(nn.Module):
         self.classifier_bn1 = nn.BatchNorm1d(args.classifier_size)
         self.classifier_bn2 = nn.BatchNorm1d(args.classifier_size)
 
-    def forward(self, action_vector, lang, lengths):
-        action_enc = F.relu(self.action_enc_bn1(self.action_enc_linear1(action_vector)))
-        action_enc = F.relu(self.action_enc_bn2(self.action_enc_linear2(action_enc)))
-        action_enc = self.action_enc_bn3(self.action_enc_linear3(action_enc))
+    def forward(self, action_vector, lang, lengths, action_lengths=None):
+        if self.args.action_enc == 'frequency':
+            action_enc = F.relu(self.action_enc_bn1(self.action_enc_linear1(action_vector)))
+            action_enc = F.relu(self.action_enc_bn2(self.action_enc_linear2(action_enc)))
+            action_enc = self.action_enc_bn3(self.action_enc_linear3(action_enc))
+        elif self.args.action_enc == 'rnn':
+            action_enc = self.action_enc_emb(action_vector)
+
+            action_enc = nn.utils.rnn.pack_padded_sequence(action_enc, action_lengths, batch_first=True, enforce_sorted=False)
+            action_enc, (h_n, c_n) = self.action_rnn(action_enc)
+            action_enc = nn.utils.rnn.pad_packed_sequence(action_enc, batch_first=True)[0]
+            seq_selector = (action_lengths - 1).unsqueeze(1).unsqueeze(1).expand(-1, 1, action_enc.shape[2])
+            action_enc = torch.gather(action_enc, 1, seq_selector).squeeze(1)
+
+            action_enc = self.action_enc_bn3(self.action_enc_linear3(action_enc))
+        else:
+            raise NotImplementedError
 
         if self.args.lang_enc == 'infersent':
             lang_encoded = self.lang_enc_linear(lang)
@@ -137,19 +159,33 @@ class LearnModel(object):
         else:
             raise NotImplementedError
 
+    def get_batch_action_lengths(self, action_list):
+        lengths = np.array([len(l) for l in action_list])
+        actions = np.array([self.pad_seq_onehot(l, max(lengths)) for l in action_list])
+        return actions, lengths
+
     def run_batch(self, data, start, is_train):
-        # lang = self.args.lang_enc
-        curr_batch_data = data[start:start+self.args.batch_size]
-
-        action_list, lang_list, label_list = zip(*curr_batch_data)
-        lang_list = np.array(lang_list)
-        lang_list, length_list = self.get_batch_lang_lengths(lang_list)
-
         if is_train:
             self.model.train()
             self.optimizer.zero_grad()
 
-        action_list = torch.Tensor(action_list).float().cuda()
+        # lang = self.args.lang_enc
+        curr_batch_data = data[start:start+self.args.batch_size]
+
+        action_length_list = None
+        action_list, lang_list, label_list = zip(*curr_batch_data)
+        lang_list = np.array(lang_list)
+        lang_list, length_list = self.get_batch_lang_lengths(lang_list)
+
+        if self.args.action_enc == 'frequency':
+            action_list = torch.Tensor(action_list).float().cuda()
+        elif self.args.action_enc == 'rnn':
+            action_list = list(action_list)
+            action_list, action_length_list = self.get_batch_action_lengths(action_list)
+
+            action_list = torch.from_numpy(action_list).long().cuda()
+            action_length_list = torch.from_numpy(action_length_list).long().cuda()
+
         label_list = torch.Tensor(label_list).long().cuda()
         if self.args.lang_enc == 'onehot':
             lang_list = torch.from_numpy(lang_list).long().cuda()
@@ -164,8 +200,10 @@ class LearnModel(object):
             lang_list = lang_list[indices]
             length_list = length_list[indices]
             label_list = label_list[indices]
+            if self.args.action_enc == 'rnn':
+                action_length_list = action_length_list[indices]
 
-        pred = self.model(action_list, lang_list, length_list)
+        pred = self.model(action_list, lang_list, length_list, action_length_list)
         loss = torch.nn.CrossEntropyLoss()(pred, label_list)
 
         if is_train:
@@ -202,28 +240,39 @@ class LearnModel(object):
             acc_train, loss_train = self.run_epoch(self.data.train_data, is_train=1)
             acc_valid, loss_valid = self.run_epoch(self.data.valid_data, is_train=0)
 
-            print('Epoch: %d \t TL: %f \t VL: %f \t TA: %f \t VA: %f' % 
+            print('Epoch: %d \t TL: %f \t VL: %f \t TA: %f \t VA: %f' %
                 (epoch, loss_train, loss_valid, acc_train, acc_valid))
 
             if acc_valid > best_val_acc:
                 if self.args.model_file:
                     state = {
-                        'args': self.args, 
-                        'epoch': epoch, 
-                        'best_val_acc': best_val_acc, 
-                        'state_dict': self.model.state_dict(), 
+                        'args': self.args,
+                        'epoch': epoch,
+                        'best_val_acc': best_val_acc,
+                        'state_dict': self.model.state_dict(),
                         'optimizer': self.optimizer.state_dict()
                     }
                     torch.save(state, self.args.model_file)
 
     def predict(self, action_list, lang_list):
-        s = np.sum(action_list)
-        action_list = np.array(action_list)
-        if s > 0:
-            action_list /= s
-        lang_list, length_list = self.get_batch_lang_lengths(lang_list)
+        action_length_list = None
+        if self.args.action_enc == 'frequency':
+            s = np.sum(action_list)
+            action_list = np.array(action_list)
+            if s > 0:
+                action_list /= s
+            lang_list, length_list = self.get_batch_lang_lengths(lang_list)
+            action_list = torch.Tensor(action_list).float().cuda()
+        elif self.args.action_enc == 'rnn':
+            action_list = np.array(action_list)
+            lang_list, length_list = self.get_batch_lang_lengths(lang_list)
 
-        action_list = torch.Tensor(action_list).float().cuda()
+            torch.Tensor(action_list).float().cuda()
+            action_list = list(action_list)
+            action_list, action_length_list = self.get_batch_action_lengths(action_list)
+            action_list = torch.from_numpy(action_list).long().cuda()
+            action_length_list = torch.from_numpy(action_length_list).long().cuda()
+
         if self.args.lang_enc == 'onehot':
             lang_list = torch.from_numpy(lang_list).long().cuda()
             length_list = torch.from_numpy(length_list).long().cuda()
@@ -231,6 +280,6 @@ class LearnModel(object):
             lang_list = torch.from_numpy(lang_list).float().cuda()
             length_list = torch.from_numpy(length_list).long().cuda()
 
-        pred = self.model(action_list, lang_list, length_list)[0]
+        pred = self.model(action_list, lang_list, length_list, action_length_list)[0]
         return pred.data.cpu().numpy()
 

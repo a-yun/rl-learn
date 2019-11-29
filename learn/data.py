@@ -34,11 +34,19 @@ class Data(object):
         clip_id = clip_id.strip()
         r, s = min(r, s), max(r, s)
         actions = self.clip_to_actions[clip_id][r:s]
-        action_vector = []
-        for i in range(N_ACTIONS):
-            action_vector.append(sum(map(lambda x:1. if x == i else 0., actions)))
-        action_vector = np.array(action_vector)
-        action_vector /= np.sum(action_vector)
+
+        if self.args.action_enc == 'frequency':
+            action_vector = []
+            for i in range(N_ACTIONS):
+                action_vector.append(sum(map(lambda x:1. if x == i else 0., actions)))
+            action_vector = np.array(action_vector)
+            action_vector /= np.sum(action_vector)
+        elif self.args.action_enc == 'rnn':
+            action_vector = np.array(actions)
+            action_vector = action_vector[np.nonzero(action_vector)]
+        else:
+            raise NotImplementedError
+
         return action_vector
 
     def load_data(self):
@@ -80,9 +88,6 @@ class Data(object):
             self.labels_list_train))
         self.valid_data = list(zip(self.action_list_valid, self.lang_list_valid, \
             self.labels_list_valid))
-
-        self.mean = np.mean(self.action_list_train, axis=-1)
-        self.std = np.std(self.action_list_train, axis=-1)
 
     def get_data_pt_cond(self, data_pt):
         cond = None

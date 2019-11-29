@@ -15,7 +15,9 @@ parser.add_argument('--weight_decay', type=float, default=0.0,
     help='weight_decay')
 parser.add_argument('--lang_enc', type=str, 
     help='onehot | glove | infersent')
-parser.add_argument('--action_enc_size', type=int, default=128, 
+parser.add_argument('--action_enc', type=str, default='frequency',
+    help='frequency | rnn')
+parser.add_argument('--action_enc_size', type=int, default=128,
     help='encoder output size for image')
 parser.add_argument('--lang_enc_size', type=int, default=128, 
     help='encoder output size for language')
