@@ -5,13 +5,13 @@ from random import seed
 from learn_model import LearnModel
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_data', type=int, default=100000, 
+parser.add_argument('--n_data', type=int, default=100000,
     help='number of samples')
-parser.add_argument('--lr', type=float, default=0.0001, 
+parser.add_argument('--lr', type=float, default=0.0001,
     help='initial learning rate')
-parser.add_argument('--dropout', type=float, default=0.8, 
+parser.add_argument('--dropout', type=float, default=0.8,
     help='dropout keep prob')
-parser.add_argument('--weight_decay', type=float, default=0.0, 
+parser.add_argument('--weight_decay', type=float, default=0.0,
     help='weight_decay')
 parser.add_argument('--lang_enc', type=str,
     help='onehot | glove | infersent | bert')
@@ -19,15 +19,15 @@ parser.add_argument('--action_enc', type=str, default='frequency',
     help='frequency | rnn')
 parser.add_argument('--action_enc_size', type=int, default=128,
     help='encoder output size for image')
-parser.add_argument('--lang_enc_size', type=int, default=128, 
+parser.add_argument('--lang_enc_size', type=int, default=128,
     help='encoder output size for language')
-parser.add_argument('--classifier_size', type=int, default=128, 
+parser.add_argument('--classifier_size', type=int, default=128,
     help='classifier_size')
-parser.add_argument('--batch_size', type=int, default=32, 
+parser.add_argument('--batch_size', type=int, default=32,
     help='batch_size')
-parser.add_argument('--data_file', default='./data/train_lang_data.pkl', 
+parser.add_argument('--data_file', default='./data/train_lang_data.pkl',
     help='data file to use')
-parser.add_argument('--actions_file', default='./data/action_labels.txt', 
+parser.add_argument('--actions_file', default='./data/action_labels.txt',
     help='action file to use')
 parser.add_argument('--model_file', default=None,
     help='Model save path')

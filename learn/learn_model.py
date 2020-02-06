@@ -45,9 +45,9 @@ class Model(nn.Module):
             self.lang_enc_emb = nn.Embedding(VOCAB_SIZE, GLOVE_DIM)
             nn.init.xavier_uniform(self.lang_enc_emb.weight)
             self.lang_enc_lstm = nn.LSTM(
-                GLOVE_DIM, 
-                args.lang_enc_size, 
-                num_layers=1, 
+                GLOVE_DIM,
+                args.lang_enc_size,
+                num_layers=1,
                 batch_first=True)
         elif args.lang_enc == 'glove':
             self.lang_enc_lstm = nn.LSTM(
@@ -125,8 +125,8 @@ class LearnModel(object):
             self.data = Data(args)
             self.model = Model(args).cuda()
             self.optimizer = optim.Adam(
-                self.model.parameters(), 
-                lr=self.args.lr, 
+                self.model.parameters(),
+                lr=self.args.lr,
                 weight_decay=self.args.weight_decay)
         elif mode == 'predict':
             ckpt = torch.load(model_dir)
@@ -229,7 +229,7 @@ class LearnModel(object):
             batch_loss, batch_pred, batch_labels = self.run_batch(data, start, is_train)
 
             start += self.args.batch_size
-            loss += batch_loss    
+            loss += batch_loss
             pred += list(batch_pred)
             labels += list(batch_labels)
 

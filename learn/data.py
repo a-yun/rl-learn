@@ -91,7 +91,7 @@ class Data(object):
             self.create_data_split(self.train_pool, n_train_data)
         self.action_list_valid, self.lang_list_valid, \
             self.labels_list_valid, all_valid_frames = \
-            self.create_data_split(self.valid_pool, n_valid_data)    
+            self.create_data_split(self.valid_pool, n_valid_data)
         self.train_data = list(zip(self.action_list_train, self.lang_list_train, \
             self.labels_list_train))
         self.valid_data = list(zip(self.action_list_valid, self.lang_list_valid, \
