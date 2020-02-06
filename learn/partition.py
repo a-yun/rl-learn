@@ -107,8 +107,18 @@ class Partition:
 
     def clip_id_to_side(self, clip_id):
         vidid = clip_id.split('/')[0]
-        start = int(eval(clip_id.split('_')[-1][:-4]) * 50)
-        end = start + 150
+        # Raw train data uses different clip format from preprocessed
+        if '_' in clip_id:
+            start = int(eval(clip_id.split('_')[-1][:-4]) * 50)
+            end = start + 150
+        elif '-' in clip_id:
+            import re
+            clip_id = re.split('\.|/|-', clip_id)
+            start = int(clip_id[1])
+            end = int(clip_id[2])
+        else:
+            raise NotImplementedError
+
         curr_indices = range(start,end)
         if self.is_sublist_of(curr_indices, self.side_labels[vidid]['L']):
             return 'L'

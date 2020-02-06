@@ -16,6 +16,7 @@ N_ACTIONS = 18
 GLOVE_DIM = 50
 VOCAB_SIZE = 296
 INFERSENT_DIM = 4096
+BERT_DIM = 768
 
 class Model(nn.Module):
     def __init__(self, args):
@@ -50,9 +51,15 @@ class Model(nn.Module):
                 batch_first=True)
         elif args.lang_enc == 'glove':
             self.lang_enc_lstm = nn.LSTM(
-                GLOVE_DIM, 
-                args.lang_enc_size, 
-                num_layers=1, 
+                GLOVE_DIM,
+                args.lang_enc_size,
+                num_layers=1,
+                batch_first=True)
+        elif args.lang_enc == 'bert':
+            self.lang_enc_lstm = nn.LSTM(
+                BERT_DIM,
+                args.lang_enc_size,
+                num_layers=1,
                 batch_first=True)
         else:
             raise NotImplementedError
@@ -94,7 +101,7 @@ class Model(nn.Module):
             output = torch.sum(output, dim=1)
             lang_encoded = output / torch.unsqueeze(lengths, 1).float().cuda()
             lang_encoded = nn.Dropout(p=0.2)(lang_encoded)
-        elif self.args.lang_enc == 'glove':
+        elif self.args.lang_enc == 'glove' or self.args.lang_enc == 'bert':
             lang = nn.Dropout(p=0.2)(lang)
             lang = nn.utils.rnn.pack_padded_sequence(lang, lengths, batch_first=True)
             output, (h_n, c_n) = self.lang_enc_lstm(lang)
@@ -150,7 +157,7 @@ class LearnModel(object):
             lengths = np.array([len(l) for l in lang_list])
             langs = np.array([self.pad_seq_onehot(l, max(lengths)) for l in lang_list])
             return langs, lengths
-        elif self.args.lang_enc == 'glove':
+        elif self.args.lang_enc == 'glove' or self.args.lang_enc == 'bert':
             lengths = np.array([len(l) for l in lang_list])
             langs = np.array([self.pad_seq_feature(l, max(lengths)) for l in lang_list])
             return langs, lengths
@@ -194,7 +201,7 @@ class LearnModel(object):
             lang_list = torch.from_numpy(lang_list).float().cuda()
             length_list = torch.from_numpy(length_list).long().cuda()
 
-        if self.args.lang_enc == 'onehot' or self.args.lang_enc == 'glove':
+        if self.args.lang_enc in ['onehot', 'glove', 'bert']:
             indices = torch.sort(length_list, descending=True)[1]
             action_list = action_list[indices]
             lang_list = lang_list[indices]

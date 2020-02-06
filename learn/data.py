@@ -65,6 +65,14 @@ class Data(object):
 
         for clip in self.data:
             side = partition.clip_id_to_side(clip['clip_id'])
+
+            # Raw train data uses different clip format from preprocessed
+            if 'clip' not in clip['clip_id']:
+                clip_id, vid_id = clip['clip_id'].split('/')
+                clip_num = int(int(vid_id.split('-')[0]) / 50)
+                clip_id += f"/clip_{clip_num}.mp4"
+                clip['clip_id'] = clip_id
+
             if side == 'L':
                 self.valid_pool.append(clip)
                 valid_clips.append(clip['clip_id'])
@@ -97,6 +105,8 @@ class Data(object):
             cond = data_pt['glove']
         elif self.args.lang_enc == 'infersent':
             cond = data_pt['infersent']
+        elif self.args.lang_enc == 'bert':
+            cond = data_pt['bert']
         else:
             raise NotImplementedError
         return cond
@@ -110,6 +120,14 @@ class Data(object):
         all_frames = []
         for i in range(n):
             clip = np.random.choice(len(pool))
+
+            # Raw train data uses different clip format from preprocessed
+            if 'clip' not in pool[clip]['clip_id']:
+                clip_id, vid_id = pool[clip]['clip_id'].split('/')
+                clip_num = int(int(vid_id.split('-')[0]) / 50)
+                clip_id += f"/clip_{clip_num}.mp4"
+                pool[clip]['clip_id'] = clip_id
+
             clip_no = eval((pool[clip]['clip_id'].split('_')[-1])[:-4])
             r = np.random.choice(TRAJ_LEN)
             s = np.random.choice(TRAJ_LEN)

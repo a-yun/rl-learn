@@ -5,6 +5,25 @@ import pickle
 import string
 import os
 
+# =============================== BERT ===============================
+
+class BertFeatures:
+    def __init__(self):
+        from transformers import BertModel, BertTokenizer
+        pretrained_weights = 'bert-base-uncased'
+
+        self.model = BertModel.from_pretrained(pretrained_weights)
+        self.tokenizer = BertTokenizer.from_pretrained(pretrained_weights)
+
+    def generate_embeddings_old(self, sentences):
+        input_ids = [torch.tensor([self.tokenizer.encode(sentence, add_special_tokens=True)]) for sentence in sentences]
+        with torch.no_grad():
+            return [self.model(ids)[0][0].tolist() for ids in input_ids]
+
+    def generate_embeddings(self, sentences):
+        input_ids = [self.tokenizer.encode(sentence, add_special_tokens=True) for sentence in sentences]
+        return input_ids
+
 # =============================== INFERSENT ===============================
 
 class InferSentFeatures:
@@ -22,7 +41,7 @@ class InferSentFeatures:
         W2V_PATH = os.path.join(lang_enc_dir, 'glove/glove.6B.300d.txt')
         self.model.set_w2v_path(W2V_PATH)
         self.model.build_vocab(sentences, tokenize=True)
-        
+
     def generate_embeddings(self, sentences):
         embeddings = self.model.encode(sentences, tokenize=True)
         return embeddings
@@ -120,17 +139,25 @@ def load_annotations_file(filename):
 
 def main(data_dir, lang_enc_pretrained, output_dir):
     train_clip_ids, train_sentences = load_annotations_file(os.path.join(
-        data_dir, 'train_annotations.txt'))
+        data_dir, 'annotations.txt'))
+    '''
     test_clip_ids, test_sentences = load_annotations_file(os.path.join(
         data_dir, 'test_annotations.txt'))
+    '''
 
+    '''
     infersent = InferSentFeatures(lang_enc_pretrained, train_sentences)
     glove = GloveFeatures(lang_enc_pretrained)
     onehot = OnehotFeatures(train_sentences)
+    '''
+    bert = BertFeatures()
 
+    '''
     infersent_embeddings_train = infersent.generate_embeddings(train_sentences)
     glove_embeddings_train = glove.generate_embeddings(train_sentences)
     onehot_embeddings_train = onehot.generate_embeddings(train_sentences)
+    '''
+    bert_embeddings_train = bert.generate_embeddings(train_sentences)
 
     train_data = []
     for idx in range(len(train_clip_ids)):
@@ -141,12 +168,15 @@ def main(data_dir, lang_enc_pretrained, output_dir):
         data_pt['glove'] = glove_embeddings_train[idx]
         data_pt['infersent'] = infersent_embeddings_train[idx]
         data_pt['onehot'] = onehot_embeddings_train[idx]
+        data_pt['bert'] = bert_embeddings_train[idx]
         train_data.append(data_pt)
     pickle.dump(train_data, open(os.path.join(output_dir, 'train_lang_data.pkl'), 'wb'))
 
+    '''
     infersent_embeddings_test = infersent.generate_embeddings(test_sentences)
     glove_embeddings_test = glove.generate_embeddings(test_sentences)
     onehot_embeddings_test = onehot.generate_embeddings(test_sentences)
+    bert_embeddings_test = bert.generate_embeddings(test_sentences)
 
     test_data = []
     for idx in range(len(test_clip_ids)):
@@ -157,8 +187,10 @@ def main(data_dir, lang_enc_pretrained, output_dir):
         data_pt['glove'] = glove_embeddings_test[idx]
         data_pt['infersent'] = infersent_embeddings_test[idx]
         data_pt['onehot'] = onehot_embeddings_test[idx]
+        data_pt['bert'] = onehot_embeddings_test[idx]
         test_data.append(data_pt)
     pickle.dump(test_data, open(os.path.join(output_dir, 'test_lang_data.pkl'), 'wb'))
+    '''
 
 
 if __name__ == '__main__':
