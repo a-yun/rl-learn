@@ -267,7 +267,6 @@ class LearnModel(object):
             action_list = np.array(action_list)
             lang_list, length_list = self.get_batch_lang_lengths(lang_list)
 
-            torch.Tensor(action_list).float().cuda()
             action_list = list(action_list)
             action_list, action_length_list = self.get_batch_action_lengths(action_list)
             action_list = torch.from_numpy(action_list).long().cuda()

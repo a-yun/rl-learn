@@ -42,7 +42,7 @@ class GymEnvironment(object):
         if self.args.action_enc == 'frequency':
             self.action_vector = np.zeros(N_ACTIONS)
         elif self.args.action_enc == 'rnn':
-            self.action_vector = [0]
+            self.action_vector = []
         else:
             raise NotImplementedError
 
