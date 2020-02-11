@@ -218,7 +218,8 @@ class LearnModel(object):
         labels = []
         pred = []
 
-        while start < len(data):
+        end = len(data) - (len(data) % self.args.batch_size)
+        while start < end:
             batch_loss, batch_pred, batch_labels = self.run_batch(data, start, is_train)
 
             start += self.args.batch_size
